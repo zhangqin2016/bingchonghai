@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="image.js"></script>
+
+    <title>农作物病害识别</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f7f9fc;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px;
+        }
+
+        .upload-label {
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            color: white;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 5px;
+            display: inline-block;
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .upload-label:hover {
+            background: linear-gradient(135deg, #2575fc, #6a11cb);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #result {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        #result img {
+            width: 100%;
+            max-width: 100%;
+            border-radius: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        #result img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        #similarity {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+        }
+
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #6a11cb;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-content {
+            margin: 10% auto;
+            display: block;
+            width: 90%;
+            max-width: 480px;
+        }
+
+        .modal-content img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 25px;
+            color: #fff;
+            font-size: 30px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .upload-label {
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+    <div class="container">
+        <h1>农作物病害识别</h1>
+        <label class="upload-label" for="imageUpload">选择一张图片</label>
+        <input type="file" id="imageUpload" accept="image/*">
+        <div id="loading" style="display: none;">
+            <div class="loader"></div>
+            <p>识别中，请稍候...</p>
+        </div>
+        <div id="compression-loading" style="display: none;">
+    <div class="loader"></div>
+    <p>压缩中，请稍候...</p>
+</div>
+        <div id="result"></div>
+        <div id="similarity" style="margin-top: 20px; font-size: 18px; color: #555;"></div>
+    </div>
+
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+        <span class="close">&times;</span>
+        <div class="modal-content">
+            <img id="modalImage" src="" alt="Full Size Image">
+        </div>
+    </div>
+
+    <script>
+      document.getElementById('imageUpload').addEventListener('change', async function (event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 配置压缩选项
+    const options = {
+        maxSizeMB: 0.2, // 设置最大图片大小，单位为MB
+        maxWidthOrHeight: 800, // 设置压缩后图片的最大宽度或高度
+        useWebWorker: true // 使用Web Worker以提升性能
+    };
+    document.getElementById('compression-loading').style.display = 'block';
+
+    try {
+        // 压缩图片
+        const compressedFile = await imageCompression(file, options);
+        console.log('Original file size:', file.size / 1024 / 1024, 'MB');
+        console.log('Compressed file size:', compressedFile.size / 1024 / 1024, 'MB');
+
+        // 将压缩后的文件转换为Base64
+        const base64 = await fileToBase64(compressedFile);
+        document.getElementById('compression-loading').style.display = 'none';
+
+        // 显示加载动画
+        document.getElementById('loading').style.display = 'block';
+
+        // 发送请求到接口
+        const response = await fetch('http://localhost:5000/predict', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json;charset=UTF-8'
+            },
+            body: JSON.stringify({ image: base64 })
+        });
+
+        if (!response.ok) {
+            throw new Error('识别请求失败，请稍后重试。');
+        }
+
+        const result = await response.json();
+        displayResult(result);
+
+    } catch (error) {
+        document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
+        document.getElementById('similarity').textContent = ''; // 清空相似度信息
+    } finally {
+        // 隐藏加载动画
+        document.getElementById('loading').style.display = 'none';
+    }
+});
+
+
+        // 将文件转换为Base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // 显示识别结果
+        function displayResult(result) {
+            const resultContainer = document.getElementById('result');
+            const similarityContainer = document.getElementById('similarity');
+
+
+
+                // 生成识别结果图片的Base64 URL
+                const resultImageUrl = `data:image/jpeg;base64,${result.image}`;
+
+                // 显示识别结果图像
+                resultContainer.innerHTML = `
+                    <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
+                `;
+
+                // 为识别结果图像添加点击事件
+                document.getElementById('resultImage').addEventListener('touchstart', function () {
+                    openModal(this.src);
+                });
+
+
+        }
+
+        // 打开模态窗口
+        function openModal(imageUrl) {
+            const modal = document.getElementById('myModal');
+            const modalImage = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImage.src = imageUrl;
+        }
+
+        // 关闭模态窗口
+        function closeModal() {
+            const modal = document.getElementById('myModal');
+            modal.style.display = 'none';
+        }
+
+        // 关闭模态窗口事件绑定
+        document.querySelector('.close').addEventListener('touchstart', closeModal);
+
+        // 点击模态背景关闭模态窗口
+        window.onclick = function (event) {
+            const modal = document.getElementById('myModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+
+</html>
