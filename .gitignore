@@ -8,3 +8,5 @@
 *.log
 logs/*
 env
+*.tar
+/my-image0901-app.tar
