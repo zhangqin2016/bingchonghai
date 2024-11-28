@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -160,20 +158,31 @@
     </style>
 </head>
 
-
 <body>
     <div class="container">
         <h1>农作物病害识别</h1>
+
+        <!-- 模型选择下拉框 -->
+        <label for="modelSelect">选择模型</label>
+        <select id="modelSelect" style="width: 100%; padding: 10px; margin-bottom: 20px;">
+            <option value="best.pt">默认模型 (best.pt)</option>
+            <option value="heibanbing_best.pt">heibanbing_best.pt</option>
+            <option value="junhebing_best.pt">junhebing_best.pt</option>
+            <option value="shuangmeibing_best.pt">shuangmeibing_best.pt</option>
+        </select>
+
         <label class="upload-label" for="imageUpload">选择一张图片</label>
         <input type="file" id="imageUpload" accept="image/*">
+
         <div id="loading" style="display: none;">
             <div class="loader"></div>
             <p>识别中，请稍候...</p>
         </div>
         <div id="compression-loading" style="display: none;">
-    <div class="loader"></div>
-    <p>压缩中，请稍候...</p>
-</div>
+            <div class="loader"></div>
+            <p>压缩中，请稍候...</p>
+        </div>
+
         <div id="result"></div>
         <div id="similarity" style="margin-top: 20px; font-size: 18px; color: #555;"></div>
     </div>
@@ -187,57 +196,63 @@
     </div>
 
     <script>
-      document.getElementById('imageUpload').addEventListener('change', async function (event) {
-    const file = event.target.files[0];
-    if (!file) return;
+        document.getElementById('imageUpload').addEventListener('change', async function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-    // 配置压缩选项
-    const options = {
-        maxSizeMB: 0.2, // 设置最大图片大小，单位为MB
-        maxWidthOrHeight: 800, // 设置压缩后图片的最大宽度或高度
-        useWebWorker: true // 使用Web Worker以提升性能
-    };
-    document.getElementById('compression-loading').style.display = 'block';
+            // 获取所选模型
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModel = modelSelect.value;
 
-    try {
-        // 压缩图片
-        const compressedFile = await imageCompression(file, options);
-        console.log('Original file size:', file.size / 1024 / 1024, 'MB');
-        console.log('Compressed file size:', compressedFile.size / 1024 / 1024, 'MB');
+            // 配置压缩选项
+            const options = {
+                maxSizeMB: 0.2, // 设置最大图片大小，单位为MB
+                maxWidthOrHeight: 800, // 设置压缩后图片的最大宽度或高度
+                useWebWorker: true // 使用Web Worker以提升性能
+            };
+            document.getElementById('compression-loading').style.display = 'block';
 
-        // 将压缩后的文件转换为Base64
-        const base64 = await fileToBase64(compressedFile);
-        document.getElementById('compression-loading').style.display = 'none';
+            try {
+                // 压缩图片
+                const compressedFile = await imageCompression(file, options);
+                console.log('Original file size:', file.size / 1024 / 1024, 'MB');
+                console.log('Compressed file size:', compressedFile.size / 1024 / 1024, 'MB');
 
-        // 显示加载动画
-        document.getElementById('loading').style.display = 'block';
+                // 将压缩后的文件转换为Base64
+                const base64 = await fileToBase64(compressedFile);
+                document.getElementById('compression-loading').style.display = 'none';
 
-        // 发送请求到接口
-        const response = await fetch('http://localhost:5000/predict', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json, text/plain, */*',
-                'Content-Type': 'application/json;charset=UTF-8'
-            },
-            body: JSON.stringify({ image: base64 })
+                // 显示加载动画
+                document.getElementById('loading').style.display = 'block';
+
+                // 发送请求到接口
+                const response = await fetch('http://ai.lanrensoft.cn/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'Content-Type': 'application/json;charset=UTF-8'
+                    },
+                    body: JSON.stringify({
+                        image: base64,
+                        model_name: selectedModel // 发送所选模型名称
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('识别请求失败，请稍后重试。');
+                }
+
+                const result = await response.json();
+                displayResult(result);
+
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
+                document.getElementById('similarity').textContent = ''; // 清空相似度信息
+            } finally {
+                // 隐藏加载动画
+                document.getElementById('loading').style.display = 'none';
+            }
         });
-
-        if (!response.ok) {
-            throw new Error('识别请求失败，请稍后重试。');
-        }
-
-        const result = await response.json();
-        displayResult(result);
-
-    } catch (error) {
-        document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
-        document.getElementById('similarity').textContent = ''; // 清空相似度信息
-    } finally {
-        // 隐藏加载动画
-        document.getElementById('loading').style.display = 'none';
-    }
-});
-
 
         // 将文件转换为Base64
         function fileToBase64(file) {
@@ -254,22 +269,18 @@
             const resultContainer = document.getElementById('result');
             const similarityContainer = document.getElementById('similarity');
 
+            // 生成识别结果图片的Base64 URL
+            const resultImageUrl = `data:image/jpeg;base64,${result.image}`;
 
+            // 显示识别结果图像
+            resultContainer.innerHTML = `
+                <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
+            `;
 
-                // 生成识别结果图片的Base64 URL
-                const resultImageUrl = `data:image/jpeg;base64,${result.image}`;
-
-                // 显示识别结果图像
-                resultContainer.innerHTML = `
-                    <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
-                `;
-
-                // 为识别结果图像添加点击事件
-                document.getElementById('resultImage').addEventListener('touchstart', function () {
-                    openModal(this.src);
-                });
-
-
+            // 为识别结果图像添加点击事件
+            document.getElementById('resultImage').addEventListener('touchstart', function () {
+                openModal(this.src);
+            });
         }
 
         // 打开模态窗口
@@ -298,5 +309,4 @@
         }
     </script>
 </body>
-
 </html>

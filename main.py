@@ -9,18 +9,34 @@ from PIL import Image, ImageDraw, ImageFont
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
 
-# 加载自定义模型
-model = YOLO("best.pt")
+# 默认模型
+default_model_path = "best.pt"
+
+
+# 加载模型的函数
+def load_model(model_name):
+    try:
+        return YOLO(model_name)
+    except Exception as e:
+        print(f"Error loading model {model_name}: {e}")
+        return None
+
+
+# 初始化默认模型
+model = load_model(default_model_path)
+
 
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
+
 def decode_image(base64_string):
     img_data = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(img_data))
     return image
+
 
 def draw_boxes(image, boxes, confidences):
     draw = ImageDraw.Draw(image)
@@ -39,13 +55,25 @@ def draw_boxes(image, boxes, confidences):
         text_size = (text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1])
 
         draw.rectangle([x1, y1 - text_size[1] - padding, x1 + text_size[0], y1], fill="red")
-        draw.text((x1, y1 - text_size[1]- padding), text, fill="white", font=font)
+        draw.text((x1, y1 - text_size[1] - padding), text, fill="white", font=font)
 
     return image
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
+
+    # 获取请求中的模型名称，如果没有提供则使用默认模型
+    model_name = data.get('model_name', default_model_path)
+
+    # 如果模型路径发生变化，重新加载模型
+    global model
+    if model_name != model.__dict__.get('path', default_model_path):
+        model = load_model(model_name)
+        if model is None:
+            return jsonify({'error': f"Failed to load model {model_name}"}), 400
+
     if 'image' not in data:
         return jsonify({'error': 'No image data provided'}), 400
 
@@ -72,6 +100,7 @@ def predict():
         'image': img_base64,
         'confidences': confidences  # 返回置信度列表
     })
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
