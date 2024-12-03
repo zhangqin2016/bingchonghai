@@ -7,99 +7,121 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 
 app = Flask(__name__)
-CORS(app)  # This will enable CORS for all routes
+CORS(app)  # Enable CORS for all routes
 
-# 默认模型
-default_model_path = "best.pt"
+# Dictionary to store models
+models = {}
 
-
-# 加载模型的函数
+# Load a model and store it in the dictionary
 def load_model(model_name):
-    try:
-        return YOLO(model_name)
-    except Exception as e:
-        print(f"Error loading model {model_name}: {e}")
-        return None
+    if model_name not in models:
+        try:
+            models[model_name] = YOLO(model_name)
+        except Exception as e:
+            print(f"Error loading model {model_name}: {e}")
+            return None
+    return models[model_name]
 
-
-# 初始化默认模型
-model = load_model(default_model_path)
-
-
+# Encode image to Base64
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-
+# Decode Base64 to image
 def decode_image(base64_string):
     img_data = base64.b64decode(base64_string)
     image = Image.open(io.BytesIO(img_data))
     return image
 
 
-def draw_boxes(image, boxes, confidences):
+# Define a fixed color mapping for models
+model_color_map = {
+ 'best.pt': '#FF0000',
+'heibanbing_best.pt': '#00FF00',
+'junhebing_best.pt': '#0000FF',
+'shuangmeibing_best.pt':'#FFA500'
+}
+
+default_color = 'orange'  # Default color for models not in the map
+
+def draw_boxes(image, boxes, confidences, classes, class_names, model_name, color, legend):
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype("test.ttf", 15)  # Load custom font with size 12px
+    font = ImageFont.truetype("test.ttf", 15)
 
     for i in range(len(boxes)):
         x1, y1, x2, y2 = boxes[i]
         conf = confidences[i]
+        cls = int(classes[i])
+        label = f"{conf * 100:.1f}%"
 
-        draw.rectangle([x1, y1, x2, y2], outline="red", width=2)
-        text = f"{conf * 100:.1f}%"  # Format as percentage
-        padding = 10  # Adjust this value as needed
-
-        # Calculate text size
-        text_bbox = draw.textbbox((x1, y1 - 10), text, font=font)  # Get bounding box for text
+        # Draw rectangle and text
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
+        text_bbox = draw.textbbox((x1, y1 - 10), label, font=font)
         text_size = (text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1])
 
-        draw.rectangle([x1, y1 - text_size[1] - padding, x1 + text_size[0], y1], fill="red")
-        draw.text((x1, y1 - text_size[1] - padding), text, fill="white", font=font)
+        padding = 5
+        draw.rectangle([x1, y1 - text_size[1] - padding, x1 + text_size[0], y1], fill=color)
+        draw.text((x1, y1 - text_size[1] - padding), label, fill="white", font=font)
+
+    # Update legend with model and color
+    legend.append((model_name, color))
 
     return image
-
 
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
 
-    # 获取请求中的模型名称，如果没有提供则使用默认模型
-    model_name = data.get('model_name', default_model_path)
-
-    # 如果模型路径发生变化，重新加载模型
-    global model
-    if model_name != model.__dict__.get('path', default_model_path):
-        model = load_model(model_name)
-        if model is None:
-            return jsonify({'error': f"Failed to load model {model_name}"}), 400
+    # Get model names from the request
+    model_names = data.get('model_names', ['best.pt'])
 
     if 'image' not in data:
         return jsonify({'error': 'No image data provided'}), 400
 
+    # Decode the input image
     base64_image = data['image']
     img = decode_image(base64_image)
 
-    # 对图片进行目标检测
-    results = model(img)  # 传递Pillow图像对象
-    class_names = model.names  # 获取类别名称
+    annotated_image = img.copy()
 
-    boxes = results[0].boxes.xyxy.numpy()  # 获取检测框坐标
-    confidences = results[0].boxes.conf.numpy().tolist()  # 获取置信度，并转换为列表
-    classes = results[0].boxes.cls.numpy()  # 获取类别
+    # To store the legend info
+    legend = []
 
-    img = draw_boxes(img, boxes, confidences)
+    for model_name in model_names:
+        model = load_model(model_name)
+        if model is None:
+            return jsonify({'error': f"Failed to load model {model_name}"}), 400
+
+        # Perform prediction
+        results = model(img)
+        class_names = model.names
+        boxes = results[0].boxes.xyxy.numpy()
+        confidences = results[0].boxes.conf.numpy().tolist()
+        classes = results[0].boxes.cls.numpy()
+
+        # Use fixed color for the model, fallback to default if not specified
+        color = model_color_map.get(model_name, default_color)
+        annotated_image = draw_boxes(annotated_image, boxes, confidences, classes, class_names, model_name, color, legend)
+
+    # Draw legend
+    draw = ImageDraw.Draw(annotated_image)
+    font = ImageFont.truetype("test.ttf", 15)
+    legend_x, legend_y = 10, 10
+    for model_name, color in legend:
+        draw.rectangle([legend_x, legend_y, legend_x + 20, legend_y + 20], fill=color)
+        draw.text((legend_x + 30, legend_y), model_name, fill="black", font=font)
+        legend_y += 30
+
+    # Convert the annotated image to Base64
     img_byte_arr = BytesIO()
-    img.save(img_byte_arr, format='PNG')
-
-    # 将字节流的内容转换为Base64字符串
+    annotated_image.save(img_byte_arr, format='PNG')
     img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
-    # 返回Base64字符串和置信度作为JSON响应
     return jsonify({
-        'image': img_base64,
-        'confidences': confidences  # 返回置信度列表
+        'image': img_base64
     })
+
 
 
 if __name__ == '__main__':

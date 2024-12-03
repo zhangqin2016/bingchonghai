@@ -164,12 +164,17 @@
 
         <!-- 模型选择下拉框 -->
         <label for="modelSelect">选择模型</label>
-        <select id="modelSelect" style="width: 100%; padding: 10px; margin-bottom: 20px;">
-            <option value="best.pt">默认模型 (best.pt)</option>
-            <option value="heibanbing_best.pt">heibanbing_best.pt</option>
-            <option value="junhebing_best.pt">junhebing_best.pt</option>
-            <option value="shuangmeibing_best.pt">shuangmeibing_best.pt</option>
-        </select>
+       <select id="modelSelect" multiple style="width: 100%; padding: 10px; margin-bottom: 20px;">
+    <option value="best.pt">默认模型 (best.pt)</option>
+    <option value="heibanbing_best.pt">heibanbing_best.pt</option>
+    <option value="junhebing_best.pt">junhebing_best.pt</option>
+    <option value="shuangmeibing_best.pt">shuangmeibing_best.pt</option>
+</select>
+            <!-- 模型颜色说明 -->
+    <div id="modelColorLegend" class="model-color-legend" style="margin-bottom: 20px;">
+        <h3>模型颜色说明</h3>
+        <div id="legendContent"></div>
+    </div>
 
         <label class="upload-label" for="imageUpload">选择一张图片</label>
         <input type="file" id="imageUpload" accept="image/*">
@@ -196,63 +201,88 @@
     </div>
 
     <script>
+    // 模型和颜色的映射
+const modelColorMap = {
+    'best.pt': '#FF0000', // 红色
+    'heibanbing_best.pt': '#00FF00', // 绿色
+    'junhebing_best.pt': '#0000FF', // 蓝色
+    'shuangmeibing_best.pt': '#FFA500' // 橙色
+};
+
+// 渲染模型颜色说明
+function renderModelColorLegend() {
+    const legendContainer = document.getElementById('legendContent');
+    legendContainer.innerHTML = ''; // 清空之前的内容
+
+    Object.entries(modelColorMap).forEach(([model, color]) => {
+        const legendItem = document.createElement('div');
+        legendItem.style.display = 'flex';
+        legendItem.style.alignItems = 'center';
+        legendItem.style.marginBottom = '10px';
+
+        const colorBox = document.createElement('div');
+        colorBox.style.width = '20px';
+        colorBox.style.height = '20px';
+        colorBox.style.backgroundColor = color;
+        colorBox.style.borderRadius = '5px';
+        colorBox.style.marginRight = '10px';
+
+        const labelText = document.createElement('span');
+        labelText.textContent = model;
+
+        legendItem.appendChild(colorBox);
+        legendItem.appendChild(labelText);
+        legendContainer.appendChild(legendItem);
+    });
+}
+
+// 页面加载后渲染颜色说明
+document.addEventListener('DOMContentLoaded', renderModelColorLegend);
+
+
+
         document.getElementById('imageUpload').addEventListener('change', async function (event) {
-            const file = event.target.files[0];
-            if (!file) return;
+    const file = event.target.files[0];
+    if (!file) return;
 
-            // 获取所选模型
-            const modelSelect = document.getElementById('modelSelect');
-            const selectedModel = modelSelect.value;
+    // 获取所选模型
+    const modelSelect = document.getElementById('modelSelect');
+    const selectedModels = Array.from(modelSelect.selectedOptions).map(option => option.value);
 
-            // 配置压缩选项
-            const options = {
-                maxSizeMB: 0.2, // 设置最大图片大小，单位为MB
-                maxWidthOrHeight: 800, // 设置压缩后图片的最大宽度或高度
-                useWebWorker: true // 使用Web Worker以提升性能
-            };
-            document.getElementById('compression-loading').style.display = 'block';
+    // 压缩和编码图像逻辑...
+    const base64 = await fileToBase64(file);
 
-            try {
-                // 压缩图片
-                const compressedFile = await imageCompression(file, options);
-                console.log('Original file size:', file.size / 1024 / 1024, 'MB');
-                console.log('Compressed file size:', compressedFile.size / 1024 / 1024, 'MB');
+    // 显示加载动画
+    document.getElementById('loading').style.display = 'block';
 
-                // 将压缩后的文件转换为Base64
-                const base64 = await fileToBase64(compressedFile);
-                document.getElementById('compression-loading').style.display = 'none';
-
-                // 显示加载动画
-                document.getElementById('loading').style.display = 'block';
-
-                // 发送请求到接口
-                const response = await fetch('http://ai.lanrensoft.cn/predict', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'Content-Type': 'application/json;charset=UTF-8'
-                    },
-                    body: JSON.stringify({
-                        image: base64,
-                        model_name: selectedModel // 发送所选模型名称
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('识别请求失败，请稍后重试。');
-                }
-
-                const result = await response.json();
-                displayResult(result);
-
-            } catch (error) {
-                document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
-                document.getElementById('similarity').textContent = ''; // 清空相似度信息
-            } finally {
-                // 隐藏加载动画
-                document.getElementById('loading').style.display = 'none';
-            }
+    try {
+        // 发送请求到接口
+        const response = await fetch('http://ai.lanrensoft.cn/predict', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json;charset=UTF-8'
+            },
+            body: JSON.stringify({
+                image: base64,
+                model_names: selectedModels // 发送多个模型名称
+            })
         });
+
+        if (!response.ok) {
+            throw new Error('识别请求失败，请稍后重试。');
+        }
+
+        const result = await response.json();
+        displayResult(result);
+
+    } catch (error) {
+        document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+});
+
 
         // 将文件转换为Base64
         function fileToBase64(file) {
