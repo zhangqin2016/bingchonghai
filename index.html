@@ -294,49 +294,63 @@ document.addEventListener('DOMContentLoaded', renderModelColorLegend);
             });
         }
 
-        // 显示识别结果
-        function displayResult(result) {
-            const resultContainer = document.getElementById('result');
-            const similarityContainer = document.getElementById('similarity');
+       // 显示识别结果
+function displayResult(result) {
+    const resultContainer = document.getElementById('result');
+    const similarityContainer = document.getElementById('similarity');
+     similarityContainer.innerHTML ='';
 
-            // 生成识别结果图片的Base64 URL
-            const resultImageUrl = `data:image/jpeg;base64,${result.image}`;
+    // 生成识别结果图片的Base64 URL
+    const resultImageUrl = `data:image/png;base64,${result.image}`;
 
-            // 显示识别结果图像
-            resultContainer.innerHTML = `
-                <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
+    // 显示识别结果图像
+    resultContainer.innerHTML = `
+        <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
+    `;
+
+    // 为识别结果图像添加点击事件
+    document.getElementById('resultImage').addEventListener('click', function () {
+        openModal(this.src);
+    });
+
+    // 处理置信度数据并展示
+    if (result.confidences) {
+        const confidences = result.confidences;
+        let maxConfidences = {};
+        Object.keys(confidences).forEach(model => {
+            const maxConf = Math.max(...confidences[model]);
+            maxConfidences[model] = maxConf;
+            similarityContainer.innerHTML += `
+                <p>模型 ${model} 的最大置信度为: ${maxConf.toFixed(2)}%</p>
             `;
+        });
+    }
+}
 
-            // 为识别结果图像添加点击事件
-            document.getElementById('resultImage').addEventListener('touchstart', function () {
-                openModal(this.src);
-            });
-        }
+// 打开模态窗口
+function openModal(imageUrl) {
+    const modal = document.getElementById('myModal');
+    const modalImage = document.getElementById('modalImage');
+    modal.style.display = 'block';
+    modalImage.src = imageUrl;
+}
 
-        // 打开模态窗口
-        function openModal(imageUrl) {
-            const modal = document.getElementById('myModal');
-            const modalImage = document.getElementById('modalImage');
-            modal.style.display = 'block';
-            modalImage.src = imageUrl;
-        }
+// 关闭模态窗口
+function closeModal() {
+    const modal = document.getElementById('myModal');
+    modal.style.display = 'none';
+}
 
-        // 关闭模态窗口
-        function closeModal() {
-            const modal = document.getElementById('myModal');
-            modal.style.display = 'none';
-        }
+// 关闭模态窗口事件绑定
+document.querySelector('.close').addEventListener('click', closeModal);
 
-        // 关闭模态窗口事件绑定
-        document.querySelector('.close').addEventListener('touchstart', closeModal);
-
-        // 点击模态背景关闭模态窗口
-        window.onclick = function (event) {
-            const modal = document.getElementById('myModal');
-            if (event.target === modal) {
-                closeModal();
-            }
-        }
+// 点击模态背景关闭模态窗口
+window.onclick = function (event) {
+    const modal = document.getElementById('myModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
     </script>
 </body>
 </html>

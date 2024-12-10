@@ -34,7 +34,6 @@ def decode_image(base64_string):
     image = Image.open(io.BytesIO(img_data))
     return image
 
-
 # Define a fixed color mapping for models
 model_color_map = {
  'best.pt': '#FF0000',
@@ -53,7 +52,7 @@ def draw_boxes(image, boxes, confidences, classes, class_names, model_name, colo
         x1, y1, x2, y2 = boxes[i]
         conf = confidences[i]
         cls = int(classes[i])
-        label = f"{conf * 100:.1f}%"
+        label = f"{class_names[cls]} {conf * 100:.1f}%"
 
         # Draw rectangle and text
         draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
@@ -88,6 +87,9 @@ def predict():
     # To store the legend info
     legend = []
 
+    # To store the confidences for each model
+    confidences_data = {}
+
     for model_name in model_names:
         model = load_model(model_name)
         if model is None:
@@ -104,6 +106,10 @@ def predict():
         color = model_color_map.get(model_name, default_color)
         annotated_image = draw_boxes(annotated_image, boxes, confidences, classes, class_names, model_name, color, legend)
 
+        # Store confidences data, multiply by 100
+        if boxes.size > 0:  # Only store if there are detected objects
+            confidences_data[model_name] = [conf * 100 for conf in confidences]
+
     # Draw legend
     draw = ImageDraw.Draw(annotated_image)
     font = ImageFont.truetype("test.ttf", 15)
@@ -119,10 +125,9 @@ def predict():
     img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
     return jsonify({
-        'image': img_base64
+        'image': img_base64,
+        'confidences': confidences_data
     })
-
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
