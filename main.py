@@ -39,7 +39,8 @@ model_color_map = {
  'best.pt': '#FF0000',
 'heibanbing_best.pt': '#00FF00',
 'junhebing_best.pt': '#0000FF',
-'shuangmeibing_best.pt':'#FFA500'
+'shuangmeibing_best.pt':'#FFA500',
+'shapibing_best.pt':'#BA55D3'
 }
 
 default_color = 'orange'  # Default color for models not in the map
