@@ -162,21 +162,17 @@
     <div class="container">
         <h1>农作物病害识别</h1>
 
-        <!-- 模型选择下拉框 -->
+        <!-- 动态生成的模型选择下拉框 -->
         <label for="modelSelect">选择模型</label>
-       <select id="modelSelect" multiple style="width: 100%; padding: 10px; margin-bottom: 20px;">
-    <option value="best.pt">默认模型 (best.pt)</option>
-    <option value="heibanbing_best.pt">heibanbing_best.pt</option>
-    <option value="junhebing_best.pt">junhebing_best.pt</option>
-    <option value="shuangmeibing_best.pt">shuangmeibing_best.pt</option>
-               <option value="shapibing_best.pt">shapibing_best.pt</option>
+        <select id="modelSelect" multiple style="width: 100%; padding: 10px; margin-bottom: 20px;">
+            <!-- The options will be populated here -->
+        </select>
 
-</select>
-            <!-- 模型颜色说明 -->
-    <div id="modelColorLegend" class="model-color-legend" style="margin-bottom: 20px;">
-        <h3>模型颜色说明</h3>
-        <div id="legendContent"></div>
-    </div>
+        <!-- 模型颜色说明 -->
+        <div id="modelColorLegend" class="model-color-legend" style="margin-bottom: 20px;">
+            <h3>模型颜色说明</h3>
+            <div id="legendContent"></div>
+        </div>
 
         <label class="upload-label" for="imageUpload">选择一张图片</label>
         <input type="file" id="imageUpload" accept="image/*">
@@ -185,6 +181,7 @@
             <div class="loader"></div>
             <p>识别中，请稍候...</p>
         </div>
+
         <div id="compression-loading" style="display: none;">
             <div class="loader"></div>
             <p>压缩中，请稍候...</p>
@@ -203,91 +200,69 @@
     </div>
 
     <script>
-    // 模型和颜色的映射
-const modelColorMap = {
-    'best.pt': '#FF0000', // 红色
-    'heibanbing_best.pt': '#00FF00', // 绿色
-    'junhebing_best.pt': '#0000FF', // 蓝色
-    'shuangmeibing_best.pt': '#FFA500', // 橙色
-     'shapibing_best.pt': '#BA55D3' // 紫色
+        // 模型数据
+        const models = [
+            { file: 'best.pt', name: '柑桔褐斑病', color: '#FF0000' },
+            { file: 'heibanbing_best.pt', name: '油菜黑斑病', color: '#00FF00' },
+            { file: 'junhebing_best.pt', name: '油菜菌核病', color: '#0000FF' },
+            { file: 'shuangmeibing_best.pt', name: '油菜霜霉病', color: '#FFA500' },
+            { file: 'shapibing_best.pt', name: '柑桔砂皮病', color: '#BA55D3' }
+        ];
+const modelNameMap = {
+    'best.pt': '柑桔褐斑病',
+    'heibanbing_best.pt': '油菜黑斑病',
+    'junhebing_best.pt': '油菜菌核病',
+    'shuangmeibing_best.pt': '油菜霜霉病',
+    'shapibing_best.pt': '柑桔砂皮病'
 };
+        // 渲染模型颜色说明
+        function renderModelColorLegend() {
+            const legendContainer = document.getElementById('legendContent');
+            legendContainer.innerHTML = '';
 
-// 渲染模型颜色说明
-function renderModelColorLegend() {
-    const legendContainer = document.getElementById('legendContent');
-    legendContainer.innerHTML = ''; // 清空之前的内容
+            models.forEach(model => {
+                const legendItem = document.createElement('div');
+                legendItem.style.display = 'flex';
+                legendItem.style.alignItems = 'center';
+                legendItem.style.marginBottom = '10px';
 
-    Object.entries(modelColorMap).forEach(([model, color]) => {
-        const legendItem = document.createElement('div');
-        legendItem.style.display = 'flex';
-        legendItem.style.alignItems = 'center';
-        legendItem.style.marginBottom = '10px';
+                const colorBox = document.createElement('div');
+                colorBox.style.width = '20px';
+                colorBox.style.height = '20px';
+                colorBox.style.backgroundColor = model.color;
+                colorBox.style.borderRadius = '5px';
+                colorBox.style.marginRight = '10px';
 
-        const colorBox = document.createElement('div');
-        colorBox.style.width = '20px';
-        colorBox.style.height = '20px';
-        colorBox.style.backgroundColor = color;
-        colorBox.style.borderRadius = '5px';
-        colorBox.style.marginRight = '10px';
+                const labelText = document.createElement('span');
+                labelText.textContent = model.name;
 
-        const labelText = document.createElement('span');
-        labelText.textContent = model;
-
-        legendItem.appendChild(colorBox);
-        legendItem.appendChild(labelText);
-        legendContainer.appendChild(legendItem);
-    });
-}
-
-// 页面加载后渲染颜色说明
-document.addEventListener('DOMContentLoaded', renderModelColorLegend);
-
-
-
-        document.getElementById('imageUpload').addEventListener('change', async function (event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // 获取所选模型
-    const modelSelect = document.getElementById('modelSelect');
-    const selectedModels = Array.from(modelSelect.selectedOptions).map(option => option.value);
-
-    // 压缩和编码图像逻辑...
-    const base64 = await fileToBase64(file);
-
-    // 显示加载动画
-    document.getElementById('loading').style.display = 'block';
-
-    try {
-        // 发送请求到接口
-        const response = await fetch('http://ai.lanrensoft.cn/predict', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json, text/plain, */*',
-                'Content-Type': 'application/json;charset=UTF-8'
-            },
-            body: JSON.stringify({
-                image: base64,
-                model_names: selectedModels // 发送多个模型名称
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('识别请求失败，请稍后重试。');
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(labelText);
+                legendContainer.appendChild(legendItem);
+            });
         }
 
-        const result = await response.json();
-        displayResult(result);
+        // 渲染模型选择下拉框
+        function populateModelSelect() {
+            const modelSelect = document.getElementById('modelSelect');
+            modelSelect.innerHTML = ''; // 清空已有的选项
 
-    } catch (error) {
-        document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
-    } finally {
-        document.getElementById('loading').style.display = 'none';
-    }
-});
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.file;
+                option.style.backgroundColor = model.color;
+                option.textContent = model.name;
+                modelSelect.appendChild(option);
+            });
+        }
 
+        // 页面加载后渲染下拉框和颜色说明
+        document.addEventListener('DOMContentLoaded', function() {
+            populateModelSelect();
+            renderModelColorLegend();
+        });
 
-        // 将文件转换为Base64
+        // 文件转换为Base64
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -297,63 +272,95 @@ document.addEventListener('DOMContentLoaded', renderModelColorLegend);
             });
         }
 
-       // 显示识别结果
-function displayResult(result) {
-    const resultContainer = document.getElementById('result');
-    const similarityContainer = document.getElementById('similarity');
-     similarityContainer.innerHTML ='';
+        document.getElementById('imageUpload').addEventListener('change', async function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-    // 生成识别结果图片的Base64 URL
-    const resultImageUrl = `data:image/png;base64,${result.image}`;
+            // 获取所选模型
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModels = Array.from(modelSelect.selectedOptions).map(option => option.value);
 
-    // 显示识别结果图像
-    resultContainer.innerHTML = `
-        <img id="resultImage" src="${resultImageUrl}" alt="Result Image">
-    `;
+            // 压缩和编码图像逻辑...
+            const base64 = await fileToBase64(file);
 
-    // 为识别结果图像添加点击事件
-    document.getElementById('resultImage').addEventListener('click', function () {
-        openModal(this.src);
-    });
+            // 显示加载动画
+            document.getElementById('loading').style.display = 'block';
 
-    // 处理置信度数据并展示
-    if (result.confidences) {
-        const confidences = result.confidences;
-        let maxConfidences = {};
-        Object.keys(confidences).forEach(model => {
-            const maxConf = Math.max(...confidences[model]);
-            maxConfidences[model] = maxConf;
-            similarityContainer.innerHTML += `
-                <p>模型 ${model} 的最大置信度为: ${maxConf.toFixed(2)}%</p>
-            `;
+            try {
+                // 发送请求到接口
+                const response = await fetch('http://ai.lanrensoft.cn/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'Content-Type': 'application/json;charset=UTF-8'
+                    },
+                    body: JSON.stringify({
+                        image: base64,
+                        model_names: selectedModels // 发送多个模型名称
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('识别请求失败，请稍后重试。');
+                }
+
+                const result = await response.json();
+                displayResult(result);
+
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">${error.message}</p>`;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
         });
-    }
-}
 
-// 打开模态窗口
-function openModal(imageUrl) {
-    const modal = document.getElementById('myModal');
-    const modalImage = document.getElementById('modalImage');
-    modal.style.display = 'block';
-    modalImage.src = imageUrl;
-}
+        // 显示识别结果
+        function displayResult(result) {
+            const resultContainer = document.getElementById('result');
+            const similarityContainer = document.getElementById('similarity');
+            similarityContainer.innerHTML = '';
 
-// 关闭模态窗口
-function closeModal() {
-    const modal = document.getElementById('myModal');
-    modal.style.display = 'none';
-}
+            const resultImageUrl = `data:image/png;base64,${result.image}`;
+            resultContainer.innerHTML = `<img id="resultImage" src="${resultImageUrl}" alt="Result Image">`;
 
-// 关闭模态窗口事件绑定
-document.querySelector('.close').addEventListener('click', closeModal);
+            document.getElementById('resultImage').addEventListener('click', function () {
+                openModal(this.src);
+            });
 
-// 点击模态背景关闭模态窗口
-window.onclick = function (event) {
-    const modal = document.getElementById('myModal');
-    if (event.target === modal) {
-        closeModal();
-    }
-}
+            // 展示置信度数据
+            if (result.confidences) {
+                const confidences = result.confidences;
+                let maxConfidences = {};
+                Object.keys(confidences).forEach(model => {
+                    const maxConf = Math.max(...confidences[model]);
+                    maxConfidences[model] = maxConf;
+                    similarityContainer.innerHTML += `
+                        <p>模型 ${modelNameMap[model]} 的最大置信度为: ${maxConf.toFixed(2)}%</p>
+                    `;
+                });
+            }
+        }
+
+        function openModal(imageUrl) {
+            const modal = document.getElementById('myModal');
+            const modalImage = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImage.src = imageUrl;
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('myModal');
+            modal.style.display = 'none';
+        }
+
+        document.querySelector('.close').addEventListener('click', closeModal);
+
+        window.onclick = function (event) {
+            const modal = document.getElementById('myModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
     </script>
 </body>
 </html>

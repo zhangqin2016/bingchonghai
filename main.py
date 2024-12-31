@@ -36,24 +36,31 @@ def decode_image(base64_string):
 
 # Define a fixed color mapping for models
 model_color_map = {
- 'best.pt': '#FF0000',
+'best.pt': '#FF0000',
 'heibanbing_best.pt': '#00FF00',
 'junhebing_best.pt': '#0000FF',
 'shuangmeibing_best.pt':'#FFA500',
 'shapibing_best.pt':'#BA55D3'
 }
+model_name_map = {
+'best.pt': '柑桔褐斑病',
+'heibanbing_best.pt': '油菜黑斑病',
+'junhebing_best.pt': '油菜菌核病',
+'shuangmeibing_best.pt':'油菜霜霉病',
+'shapibing_best.pt':'柑桔砂皮病'
+}
 
+default_name = '病'
 default_color = 'orange'  # Default color for models not in the map
 
-def draw_boxes(image, boxes, confidences, classes, class_names, model_name, color, legend):
+def draw_boxes(image, boxes, confidences, model_name, color, legend):
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype("test.ttf", 15)
 
     for i in range(len(boxes)):
         x1, y1, x2, y2 = boxes[i]
         conf = confidences[i]
-        cls = int(classes[i])
-        label = f"{class_names[cls]} {conf * 100:.1f}%"
+        label = f"{model_name} {conf * 100:.1f}%"
 
         # Draw rectangle and text
         draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
@@ -62,7 +69,7 @@ def draw_boxes(image, boxes, confidences, classes, class_names, model_name, colo
 
         padding = 5
         draw.rectangle([x1, y1 - text_size[1] - padding, x1 + text_size[0], y1], fill=color)
-        draw.text((x1, y1 - text_size[1] - padding), label, fill="white", font=font)
+        draw.text((x1, y1 - text_size[1] - padding), label, fill="black", font=font)
 
     # Update legend with model and color
     legend.append((model_name, color))
@@ -105,7 +112,9 @@ def predict():
 
         # Use fixed color for the model, fallback to default if not specified
         color = model_color_map.get(model_name, default_color)
-        annotated_image = draw_boxes(annotated_image, boxes, confidences, classes, class_names, model_name, color, legend)
+        name = model_name_map.get(model_name, default_name)
+
+        annotated_image = draw_boxes(annotated_image, boxes, confidences, name, color, legend)
 
         # Store confidences data, multiply by 100
         if boxes.size > 0:  # Only store if there are detected objects
