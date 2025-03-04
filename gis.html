@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet Map with WMS Layer</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="map" style="width: 100%; height: 600px;"></div>
+
+    <script>
+        // 初始化地图，设置中心和缩放级别
+        var map = L.map('map').setView([49.5, 4.6], 6);  // 中心点可以根据你的 WMS 数据调整
+
+        // 加载 OpenStreetMap 作为底图
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // WMS 图层 URL
+        var wmsUrl = 'http://geoserver.lanrensoft.cn/geoserver/gis/wms?service=WMS&version=1.1.0&request=GetMap&layers=gis%3Azqgis&bbox=2.8422075473136834%2C49.49696851584747%2C6.408062797250742%2C50.810748697285106&width=768&height=330&srs=EPSG%3A404000&styles=&format=image%2Fvnd.jpeg-png';
+
+        // 添加 WMS 图层
+        L.tileLayer.wms(wmsUrl, {
+            layers: 'gis:zqgis',  // 需要显示的图层名称
+            format: 'image/png',   // 图层格式
+            transparent: true      // 支持透明背景
+        }).addTo(map);
+    </script>
+</body>
+</html>

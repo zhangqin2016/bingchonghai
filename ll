@@ -12,3 +12,7 @@ docker cp shuangmeibing_best.pt bingchonghai:/app/shuangmeibing_best.pt
 
 
 docker cp shapibing_best.pt bingchonghai:/app/shapibing_best.pt
+
+
+
+docker cpparcellaire2020+communes3.shp geoserver:/geoserver

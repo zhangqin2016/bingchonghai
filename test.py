@@ -52,7 +52,7 @@ def generate_insert_statements(cities, country_code):
         name = city['name']
         province_code = country_code  # 根据需要填写
         insert_cites_sql.append(
-            f"INSERT INTO `split_table_info` (`split_key`, `split_table`) VALUES ('NP_{code}', 'fff_address_weather_log_split_guowai');")
+            f"INSERT INTO `split_table_info` (`split_key`, `split_table`) VALUES ('99{code}', 'fff_address_weather_log_split_guowai');")
 
         # fff_address_latlng 表的插入语句
         lat = city['lat']
